@@ -34,14 +34,14 @@ The mv command can move a message to a folder or rename its fields.
 
 # Approach
 
-  Use strtok() or strstream or some other simple command parser in a for(;;) loop until the user enters "exit" 
-  Capable of building on Linux (and Windows using libunistd)
-  Use STL only as necessary 
-  Keep it simple
+1. Use strtok() or strstream or some other simple command parser in a for(;;) loop until the user enters "exit" 
+1. Capable of building on Linux (and Windows using libunistd)
+1. Use STL only as necessary 
+1. Keep it simple
 
 # Dependencies
 
-  C++
-  cmake
-  libetpan (or another suitable open source C/C++ IMAP library)
-  openssl
+1. C++
+1. cmake
+1. libetpan (or another suitable open source C/C++ IMAP library)
+1. openssl

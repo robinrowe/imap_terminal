@@ -1,0 +1,8 @@
+project (imap_terminal)
+SET (VMIME_HAVE_MESSAGING_PROTO_SENDMAIL "OFF")
+SET (VMIME_BUILD_SAMPLES "OFF")
+add_subdirectory(lib/linux/vmime)
+include_directories(lib/linux/vmime/src)
+include_directories(${PROJECT_BINARY_DIR}/src)
+add_executable(imap_terminal src/example1.cpp)
+target_link_libraries(imap_terminal ${PROJECT_BINARY_DIR}/lib/linux/vmime/build/lib/libvmime.a libgsasl.a libgnutls.a)

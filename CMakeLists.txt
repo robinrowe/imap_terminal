@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(imap_terminal)
-add_executable(imap_terminal ${CMAKE_SOURCE_DIR}/src/main.cpp)
+file(GLOB imap_terminal_SRC RELATIVE ${CMAKE_SOURCE_DIR} "*.h" "*.cpp")
+add_executable(imap_terminal ${imap_terminal_SRC})
 find_package (CURL)
 if (CURL_FOUND)
   include_directories(${CURL_INCLUDE_DIRS})

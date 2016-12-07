@@ -2,5 +2,14 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\example.cpp" />
+    <ClCompile Include="src\curl_session.cpp" />
+    <ClCompile Include="src\imap_session.cpp" />
+    <ClCompile Include="src\curl_exception.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\curl_session.h" />
+    <ClInclude Include="src\imap_session.h" />
+    <ClInclude Include="src\curl_exception.h" />
   </ItemGroup>
 </Project>

@@ -5,6 +5,7 @@
 #include <exception>
 #include <vector>
 #include <curl/curl.h>
+#include <stdexcept>
 
 namespace imap_terminal
 {

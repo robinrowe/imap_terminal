@@ -10,12 +10,12 @@ namespace imap_terminal
     
     }
 
-    CCurlException::~CCurlException()
+    CCurlException::~CCurlException() throw()
     {
     
     }
 
-    const char* CCurlException::what() const
+    const char* CCurlException::what() const throw()
     {
         return ::curl_easy_strerror(m_nError);
     }

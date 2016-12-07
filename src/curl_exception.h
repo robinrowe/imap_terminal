@@ -10,9 +10,9 @@ namespace imap_terminal
     {
     public:
         CCurlException(CURLcode err);
-        virtual ~CCurlException();
+        virtual ~CCurlException() throw();
         
-        virtual const char* what() const;
+        virtual const char* what() const throw();
 
         static void testCurlCode(CURLcode);
 

@@ -1,6 +1,7 @@
 #include "./curl_session.h"
 #include "./curl_exception.h"
 #include <exception>
+#include <string.h>
 
 using namespace std;
 

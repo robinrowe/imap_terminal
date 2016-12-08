@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(imap_terminal)
 file(GLOB imap_terminal_SRC "src/*.h" "src/*.cpp")
+set(CMAKE_CXX_STANDARD 11)
 add_executable(imap_terminal ${imap_terminal_SRC})
 find_package (CURL)
 if (CURL_FOUND)

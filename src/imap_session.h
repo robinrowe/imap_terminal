@@ -19,10 +19,22 @@ namespace imap_terminal
 
         virtual ~CImapSession();
 
+        std::string absolutePath() const;
+
+    protected:
+        virtual void handleData(std::string data);
+
     private:
+        enum EExpectState
+        {
+            EExpectListing          = 0,
+            EExpectExamination      = 1
+        };
+
         std::string m_sHost;
         std::string m_sPort;
-        std::stack<std::string> m_RelativePath;
+        std::vector<std::string> m_RelativePath;
+        EExpectState m_ExpectState;
     };
 }
 

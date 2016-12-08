@@ -24,17 +24,22 @@ namespace imap_terminal
     protected:
         const CURL* easyHandle() const;
         CURL* easyHandle();
-        void raiseCurlRuntimeError() const;
+        
+        virtual void handleData(std::string data);
+
+        void perform();
 
     private:
         static void __globalInit();
         static bool __global_init;
 
         CCurlSession(const CCurlSession&);
+        void raiseCurlRuntimeError() const;
         
         CURL* m_EasyHandle;
         std::vector<char> m_ErrorBuffer;
 
+        static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
     };
 }
 

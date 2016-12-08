@@ -1,4 +1,5 @@
 #include "./curl_session.h"
+#include "./curl_exception.h"
 #include <exception>
 
 using namespace std;
@@ -14,6 +15,7 @@ namespace imap_terminal
     CCurlSession::CCurlSession()
     {
         __globalInit();
+
         m_EasyHandle = ::curl_easy_init();
         if (NULL == m_EasyHandle)
         {
@@ -21,7 +23,12 @@ namespace imap_terminal
         }
 
         m_ErrorBuffer.resize(CURL_ERROR_SIZE + 1, 0);
-        ::curl_easy_setopt(m_EasyHandle, CURLOPT_ERRORBUFFER, &(m_ErrorBuffer[0]));
+        CCurlException::testCurlCode(::curl_easy_setopt(m_EasyHandle, CURLOPT_ERRORBUFFER, &(m_ErrorBuffer[0])));
+        CCurlException::testCurlCode(::curl_easy_setopt(m_EasyHandle, CURLOPT_WRITEFUNCTION, write_callback));
+        CCurlException::testCurlCode(::curl_easy_setopt(
+            m_EasyHandle, 
+            CURLOPT_WRITEDATA, 
+            reinterpret_cast<void*>(this)));
     }
 
     CCurlSession::CCurlSession(const CCurlSession& otherSession)
@@ -52,6 +59,27 @@ namespace imap_terminal
         throw CCUrlRuntimeError(string(&(m_ErrorBuffer[0])));
     }
 
+    void CCurlSession::handleData(std::string data)
+    {
+        throw logic_error("CCurlSession::handleData");
+    }
+
+    void CCurlSession::perform()
+    {
+        CURLcode status = ::curl_easy_perform(m_EasyHandle);
+        if (CURLE_OK != status)
+        {
+            if (string(&(m_ErrorBuffer[0])).length() > 0)
+            {
+                raiseCurlRuntimeError();
+            }
+            else
+            {
+                throw CCurlException(status);
+            }
+        }
+    }
+
     void CCurlSession::__globalInit()
     {
         if (!CCurlSession::__global_init)
@@ -61,4 +89,14 @@ namespace imap_terminal
     }
 
     bool CCurlSession::__global_init = false;
+
+    size_t CCurlSession::write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
+    {
+        vector<char> buf;
+        buf.resize(size * nmemb + 1, 0);
+        ::memcpy(&(buf[0]), ptr, size * nmemb);
+
+        reinterpret_cast<CCurlSession*>(userdata)->handleData(string(&(buf[0])));
+        return size * nmemb;
+    }
 }

@@ -157,7 +157,7 @@ namespace imap_terminal
                     for (loc = iterBegin; loc != iterEnd; loc++)
                     {
                         CMailboxObject& o1 = *loc;
-                        CMailboxObject& o2 = CMailboxObject(*i);
+                        CMailboxObject o2(*i);
                         if (o1 == o2)
                         {
                             break;

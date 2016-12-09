@@ -1,4 +1,5 @@
 #include "./imap_terminal.h"
+#include "./utils.h"
 #include <iostream>
 
 using namespace std;
@@ -23,7 +24,7 @@ namespace imap_terminal
 
     std::string CImapTerminal::__readLine() const
     {
-        cout << absolutePath() << "$ ";
+        cout << host() << "$ ";
 
         std::string line;
         getline(cin, line);
@@ -33,31 +34,7 @@ namespace imap_terminal
 
     std::vector<std::string> CImapTerminal::__parseLine(const std::string& line) const
     {
-        vector<string> tokens;
-        string token;
-        for (string::size_type i = 0; i < line.length(); i++)
-        {
-            bool whitesp = __isWhitespace(line.at(i));
-            if (whitesp || i == line.length() - 1)
-            {
-                if (!whitesp)
-                {
-                    token += line.at(i);
-                }
-
-                if (token.length() > 0)
-                {
-                    tokens.push_back(token);
-                    token = "";
-                }
-            }
-            else
-            {
-                token += line.at(i);
-            }
-        }
-
-        return tokens;
+        return CUtils::tokenize(line, "\x20\x09");
     }
 
     bool CImapTerminal::__executeLine(const std::vector<std::string>& line)
@@ -66,12 +43,37 @@ namespace imap_terminal
         {
             return false;
         }
-
-        /*vector<string>::const_iterator i;
-        for (i = line.begin(); i != line.end(); i++)
+        else if (line[0] == "pwd")
         {
-            cout << "<" << *i << ">" << endl;
-        }*/
+            cout << pwd() << endl;
+        }
+        else if (line[0] == "ls")
+        {
+            if (line.size() == 2)
+            {
+                cout << ls(line[1]) << endl;
+            }
+            else
+            {
+                cout << ls() << endl;
+            }
+        }
+        else if (line[0] == "cd")
+        {
+            if (line.size() == 2)
+            {
+                cout << cd(line[1]) << endl;
+            }
+            else
+            {
+                cout << cd() << endl;
+            }
+        }
+        else if (line[0] == "whoami")
+        {
+            cout << whoami() << endl;
+        }
+        
         return true;
     }
 
@@ -92,15 +94,5 @@ namespace imap_terminal
                 break;
             }
         }
-    }
-
-    bool CImapTerminal::__isWhitespace(std::string::value_type c)
-    {
-        int n = c;
-        if (n == 0x20 || n == 0x09 || n == 0x0A || n == 0x0D)
-        {
-            return true;
-        }
-        return false;
     }
 }

@@ -40,6 +40,7 @@ namespace imap_terminal
         std::vector<char> m_ErrorBuffer;
 
         static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
+        std::string m_sCurlOutput;
     };
 }
 

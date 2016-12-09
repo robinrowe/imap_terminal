@@ -22,8 +22,6 @@ namespace imap_terminal
         std::vector<std::string> __parseLine(const std::string& line) const;
         bool __executeLine(const std::vector<std::string>& line);
         void __run();
-
-        static bool __isWhitespace(std::string::value_type c);
     };
 }
 

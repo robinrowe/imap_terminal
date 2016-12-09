@@ -79,6 +79,8 @@ namespace imap_terminal
                 throw CCurlException(status);
             }
         }
+
+        this->handleData(m_sCurlOutput);
     }
 
     void CCurlSession::__globalInit()
@@ -97,7 +99,7 @@ namespace imap_terminal
         buf.resize(size * nmemb + 1, 0);
         ::memcpy(&(buf[0]), ptr, size * nmemb);
 
-        reinterpret_cast<CCurlSession*>(userdata)->handleData(string(&(buf[0])));
+        reinterpret_cast<CCurlSession*>(userdata)->m_sCurlOutput += string(&(buf[0]));
         return size * nmemb;
     }
 }

@@ -29,6 +29,21 @@ namespace imap_terminal
 
         void perform();
 
+        //cURL slist wrapper
+        class CSList
+        {
+        public:
+            CSList();
+            virtual ~CSList();
+
+            CSList& operator<<(const std::string& s);
+            struct curl_slist* slist();
+            
+        private:
+            CSList(const CSList&);
+            struct curl_slist* m_pCurlSList;
+        };
+
     private:
         static void __globalInit();
         static bool __global_init;

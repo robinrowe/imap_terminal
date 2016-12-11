@@ -1,9 +1,9 @@
 #include "./imap_session.h"
 #include "./curl_exception.h"
 #include "./utils.h"
-#include <tree_util.hh>
 #include <iostream>
 #include <regex>
+#include <sstream>
 
 using namespace std;
 
@@ -14,10 +14,13 @@ namespace imap_terminal
         const std::string& password,
         const std::string& host,
         const std::string& port,
-        bool ssl) : 
+        bool ssl,
+        int limit) : 
         m_sHost(host),
         m_sPort(port),
-        m_sUsername(username)
+        m_sUsername(username),
+        m_bUseSSL(ssl),
+        m_nLimit(limit)
     {
         if (ssl)
         {
@@ -32,17 +35,8 @@ namespace imap_terminal
 
         CCurlException::testCurlCode(::curl_easy_setopt(easyHandle(), CURLOPT_USERNAME, username.c_str()));
         CCurlException::testCurlCode(::curl_easy_setopt(easyHandle(), CURLOPT_PASSWORD, password.c_str()));
-        
-        string url = (ssl ? string("imaps://") : string("imap://")) +
-            host +
-            string(":") +
-            port +
-            string("/");
-        
-        CCurlException::testCurlCode(::curl_easy_setopt(easyHandle(), CURLOPT_URL, (url).c_str()));
 
-        m_ExpectState = EExpectListing;
-        perform();
+        __testLogin();
     }
 
     CImapSession::~CImapSession()
@@ -52,229 +46,356 @@ namespace imap_terminal
 
     std::string CImapSession::pwd() const
     {
-        string pwd;
-        tree<CMailboxObject>::iterator iter = m_CurrentPosition;
-        while (1)
-        {
-            pwd += string("/") + (*iter).name(); 
-            if (iter == m_MailboxStructure.begin())
-            {
-                break;
-            }
-
-            iter = m_MailboxStructure.parent(iter);
-        }
-
-        vector<string> elements = CUtils::tokenize(pwd, "/");
-        vector<string>::reverse_iterator r_iter;
-        pwd = "";
-        for (r_iter = elements.rbegin(); r_iter != elements.rend(); r_iter++)
-        {
-            pwd += string("/") + *r_iter;
-        }
-
-        return pwd;
+        return __path(m_CurrentPath);
     }
 
-    std::string CImapSession::ls(const std::string& dir) const
+    std::string CImapSession::ls(const std::string& dir)
     {
-        string sListing;        
+        string sListing;
         
-        tree<CMailboxObject>::iterator iter = m_CurrentPosition;
-        if (dir.at(0) == '/')
-        {
-            //user requested an absolute path
-            iter = m_MailboxStructure.begin();
-        }
-
         try
         {
-            __moveTreePos(dir, iter);
+            if (!__checkDirectoryExists(dir))
+            {
+                return string("No such file or directory");
+            }
+            
+            string sAbsPath = __absPath(dir);
+
+            //1. Subdirectory listing
+            m_CurrentOperation = new CListSubdirOperation(sAbsPath);
+            __runOperation();
+            sListing = static_cast<CListSubdirOperation*>(m_CurrentOperation)->listing();
+            delete m_CurrentOperation; m_CurrentOperation = NULL;
+
+            //2. Message listing
+            m_CurrentOperation = new CCheckDirectoryOperation(sAbsPath);
+            __runOperation();
+            int nMaxUid = static_cast<CCheckDirectoryOperation*>(m_CurrentOperation)->maxUid();
+            delete m_CurrentOperation; m_CurrentOperation = NULL;
+
+            for (int i = 0; i < m_nLimit && nMaxUid > 0; i++, nMaxUid--)
+            {
+                m_CurrentOperation = new CListMessageOperation(sAbsPath, nMaxUid);
+                __runOperation();
+                sListing += static_cast<CListMessageOperation*>(m_CurrentOperation)->listing() + "\n";
+                delete m_CurrentOperation; m_CurrentOperation = NULL;
+            }
         }
         catch (const exception& e)
         {
+            if (m_CurrentOperation != NULL)
+            {
+                delete m_CurrentOperation;
+            }
             return e.what();
         }
-
-        tree<CMailboxObject>::sibling_iterator s_iter;
-        for (s_iter = m_MailboxStructure.begin(iter); s_iter != m_MailboxStructure.end(iter); s_iter++)
-        {
-            sListing += (*s_iter).render() + "\n";
-        }
-
+        
         return sListing;
     }
 
     std::string CImapSession::cd(const std::string& dir)
     {
-        if (dir.at(0) == '/')
+        if (!__checkDirectoryExists(dir))
         {
-            //user requested an absolute path
-            m_CurrentPosition = m_MailboxStructure.begin();
+            return string("No such file or directory");
         }
 
-        try
-        {
-            __moveTreePos(dir, m_CurrentPosition);
-        }
-        catch (const exception& e)
-        {
-            return e.what();
-        }
-
+        m_CurrentPath = CUtils::tokenize(__absPath(dir), "/");
         return string("");
+    }
+
+    bool CImapSession::__checkDirectoryExists(const std::string& dir)
+    {
+        string absPathToCheck = __absPath(dir);
+        
+        if (absPathToCheck == "/")
+        {
+            return true;
+        }
+        else
+        {
+            try
+            {
+                m_CurrentOperation = new CCheckDirectoryOperation(absPathToCheck);
+                __runOperation();
+                bool f = (static_cast<CCheckDirectoryOperation*>(m_CurrentOperation)->directoryData().length() <= 0);
+                delete m_CurrentOperation;
+                m_CurrentOperation = NULL;
+
+                if (f)
+                {
+                    return false;
+                }
+                
+            }
+            catch (const exception&)
+            {
+                delete m_CurrentOperation;
+                m_CurrentOperation = NULL;
+                return false;
+            }
+        }
+        return true;
     }
 
     void CImapSession::handleData(std::string data)
     {
-        if (m_ExpectState == EExpectListing)
-        {
-            //reset local Mailbox structure
-            if (m_MailboxStructure.number_of_siblings(m_MailboxStructure.begin()) > 0)
-            {
-                m_MailboxStructure.erase(m_MailboxStructure.begin());
-            }
-
-            CMailboxDirectory rootDir;
-            tree<CMailboxObject>::iterator top;
-            top = m_MailboxStructure.begin();
-            m_CurrentPosition = m_MailboxStructure.insert(top, rootDir);
-
-            regex imapListResponse("\\x2A\\s+LIST\\s+\\([\\\\a-zA-Z\\s]+\\)\\s+\"*([^\"]+)\"*\\s+\"*([^\"]+)\"*");
-            smatch sm;
-            while (regex_search(data, sm, imapListResponse))
-            {
-                string path = sm[2];
-                string delimiter = sm[1];
-
-                vector<string> pathElements = CUtils::tokenize(path, delimiter);
-                vector<string>::iterator i;
-                tree<CMailboxObject>::sibling_iterator iterBegin = m_MailboxStructure.begin(m_CurrentPosition);
-                tree<CMailboxObject>::sibling_iterator iterEnd = m_MailboxStructure.end(m_CurrentPosition);
-                for (i = pathElements.begin(); i != pathElements.end(); i++)
-                {
-                    tree<CMailboxObject>::sibling_iterator loc;
-                    for (loc = iterBegin; loc != iterEnd; loc++)
-                    {
-                        CMailboxObject& o1 = *loc;
-                        CMailboxObject o2(*i);
-                        if (o1 == o2)
-                        {
-                            break;
-                        }
-                    }
-
-                    if (loc == iterEnd)
-                    {
-                        loc = m_MailboxStructure.insert(iterBegin, CMailboxDirectory(*i));
-                    }
-
-                    iterBegin = m_MailboxStructure.begin(loc);
-                    iterEnd = m_MailboxStructure.end(loc);
-                }
-
-                data = sm.suffix();
-            }
-
-            //kptree::print_tree_bracketed(m_MailboxStructure);
-        }
+        m_CurrentOperation->completionRoutine(data);
     }
 
-    CImapSession::CMailboxObject::CMailboxObject()
-    {
     
-    }
-
-    CImapSession::CMailboxObject::CMailboxObject(const std::string& name) :
-        m_sName(name)
-    {
-    
-    }
-
-    CImapSession::CMailboxObject::~CMailboxObject()
-    {
-    
-    }
-
-    std::string CImapSession::CMailboxObject::render() const
-    {
-        return m_sName;
-    }
-    
-    bool CImapSession::CMailboxObject::operator==(const CMailboxObject& other) const
-    {
-        return m_sName == other.m_sName;
-    }
-
-    const std::string& CImapSession::CMailboxObject::name() const
-    {
-        return m_sName;
-    }
-
-    std::string& CImapSession::CMailboxObject::name()
-    {
-        return m_sName;
-    }
-
-    CImapSession::CMailboxDirectory::CMailboxDirectory(const std::string& name) : 
-        CImapSession::CMailboxObject(name)
-    {
-    
-    }
-
-    CImapSession::CMailboxDirectory::CMailboxDirectory()
-    {
-    
-    }
-
-    std::ostream& operator<<(std::ostream& out, const CImapSession::CMailboxObject& obj)
-    {
-        return out << obj.render();
-    }
 
     const std::string& CImapSession::host() const
     {
         return m_sHost;
     }
 
-    void CImapSession::__moveTreePos(const std::string& where, tree<CMailboxObject>::iterator& pos) const
-    {
-        string badDir = "No such file or directory";
-        
-        vector<string> dirs = CUtils::tokenize(where, "/");
-        vector<string>::iterator i;
-        for (i = dirs.begin(); i != dirs.end(); i++)
-        {
-            if (*i == ".")
-            {
-
-            }
-            else if (*i == "..")
-            {
-                if (pos == m_MailboxStructure.begin())
-                {
-                    throw runtime_error(badDir);
-                }
-                pos = m_MailboxStructure.parent(pos);
-            }
-            else
-            {
-                tree<CMailboxObject>::iterator s_iter =
-                    find(m_MailboxStructure.begin(pos), m_MailboxStructure.end(pos), CMailboxDirectory(*i));
-                if (s_iter != m_MailboxStructure.end(pos))
-                {
-                    pos = s_iter;
-                }
-                else
-                {
-                    throw runtime_error(badDir);
-                }
-            }
-        }
-    }
-
+    
     std::string CImapSession::whoami() const
     {
         return m_sUsername;
+    }
+
+    std::string CImapSession::__path(const std::vector < std::string >& vec) const
+    {
+        string pwd = "/";
+        vector<string>::const_iterator i;
+        for (i = vec.begin(); i != vec.end(); i++)
+        {
+            pwd += string((i == vec.begin()) ? "" : "/") + *i;
+        }
+
+        return pwd;
+    }
+
+    void CImapSession::__testLogin()
+    {
+        m_CurrentOperation = new CCheckLoginOperation();
+        try
+        {
+            __runOperation();
+        }
+        catch (...)
+        {
+            delete m_CurrentOperation;
+            m_CurrentOperation = NULL;
+
+            throw;
+        }
+        delete m_CurrentOperation;
+        m_CurrentOperation = NULL;
+    }
+
+    std::string CImapSession::__absPath(const std::string& dir) const
+    {
+        string absPathToCheck;
+        if (dir.at(0) == '/')
+        {
+            absPathToCheck = dir;
+        }
+        else
+        {
+            vector<string> absPathToCheckVec = m_CurrentPath;
+            vector<string> relPath = CUtils::tokenize(dir, "/");
+            vector<string>::iterator i;
+            for (i = relPath.begin(); i != relPath.end(); i++)
+            {
+                if (*i == ".")
+                {
+
+                }
+                else if (*i == "..")
+                {
+                    absPathToCheckVec.pop_back();
+                }
+                else
+                {
+                    absPathToCheckVec.push_back(*i);
+                }
+            }
+
+            absPathToCheck = __path(absPathToCheckVec);
+        }
+
+        return absPathToCheck;
+    }
+
+    void CImapSession::__runOperation()
+    {
+        string url = (m_bUseSSL ? string("imaps://") : string("imap://")) +
+            m_sHost +
+            string(":") +
+            m_sPort +
+            m_CurrentOperation->path();
+
+        CCurlException::testCurlCode(::curl_easy_setopt(const_cast<CURL*>(easyHandle()), CURLOPT_URL, (url).c_str()));
+
+        if (m_CurrentOperation->command().length() > 0)
+        {
+            CCurlException::testCurlCode(::curl_easy_setopt(easyHandle(), 
+                CURLOPT_CUSTOMREQUEST, m_CurrentOperation->command().c_str()));
+        }
+
+        try
+        {
+            perform();
+        }
+        catch (...)
+        {
+            CCurlException::testCurlCode(::curl_easy_setopt(easyHandle(), CURLOPT_CUSTOMREQUEST, NULL));
+            throw;
+        }
+
+        CCurlException::testCurlCode(::curl_easy_setopt(easyHandle(), CURLOPT_CUSTOMREQUEST, NULL));
+    }
+
+    CImapSession::COperation::COperation(
+        EOperationType type,
+        const std::string& path,
+        const std::string& command) : 
+        m_Type(type),
+        m_sPath(path),
+        m_sCommand(command)
+    {
+    
+    }
+
+    CImapSession::COperation::~COperation()
+    {
+    
+    }
+
+    void CImapSession::COperation::completionRoutine(const std::string& data)
+    {
+        
+    }
+
+    const CImapSession::COperation::EOperationType& CImapSession::COperation::type() const
+    {
+        return m_Type;
+    }
+
+    const std::string& CImapSession::COperation::path() const
+    {
+        return m_sPath;
+    }
+
+    const std::string& CImapSession::COperation::command() const
+    {
+        return m_sCommand;
+    }
+
+    CImapSession::COperation::EOperationType& CImapSession::COperation::type()
+    {
+        return m_Type;
+    }
+
+    std::string& CImapSession::COperation::path()
+    {
+        return m_sPath;
+    }
+
+    std::string& CImapSession::COperation::command()
+    {
+        return m_sCommand;
+    }
+
+    CImapSession::CCheckLoginOperation::CCheckLoginOperation() : 
+        CImapSession::COperation(CImapSession::COperation::ECheckLogin)
+    {
+
+    }
+
+    CImapSession::CCheckDirectoryOperation::CCheckDirectoryOperation(const std::string& sPath) : 
+        CImapSession::COperation(CImapSession::COperation::ECheckDirectoryExists, sPath)
+    {
+        command() = string("EXAMINE ") + path().substr(1, path().length() - 1);
+        path() = "";
+    }
+
+    void CImapSession::CCheckDirectoryOperation::completionRoutine(const std::string& data)
+    {
+        m_sDirData = data;
+        regex r("([0-9]+) EXIST");
+        smatch sm;
+        while(regex_search(m_sDirData, sm, r))
+        {
+            istringstream strm(sm.str());
+            strm >> m_nMaxUid;
+            break;
+        }
+    }
+
+    const std::string& CImapSession::CCheckDirectoryOperation::directoryData() const
+    {
+        return m_sDirData;
+    }
+
+    const int& CImapSession::CCheckDirectoryOperation::maxUid() const
+    {
+        return m_nMaxUid;
+    }
+
+    CImapSession::CListSubdirOperation::CListSubdirOperation(const std::string& path) : 
+        CImapSession::COperation(CImapSession::COperation::EDirectoryListing, path)
+    {
+    
+    }
+
+    void CImapSession::CListSubdirOperation::completionRoutine(const std::string& sData)
+    {
+        m_sListing = "";
+        string data = sData;
+        vector<string> pathToList = CUtils::tokenize(path(), "/");
+        regex imapListResponse("\\x2A\\s+LIST\\s+\\([\\\\a-zA-Z\\s]+\\)\\s+\"*([^\"]+)\"*\\s+\"*([^\"]+)\"*");
+        smatch sm;
+        while (regex_search(data, sm, imapListResponse))
+        {
+            string path = sm[2];
+            string delimiter = sm[1];
+
+            vector<string> pathElements = CUtils::tokenize(path, delimiter);
+            if (pathElements.size() == pathToList.size() + 1)
+            {
+                m_sListing += string("d    ") + pathElements[pathElements.size() - 1] + "\n";
+            }
+
+            data = sm.suffix();
+        }
+    }
+
+    const std::string& CImapSession::CListSubdirOperation::listing() const
+    {
+        return m_sListing;
+    }
+
+    CImapSession::CListMessageOperation::CListMessageOperation(const std::string& sPath, int uid) : 
+        CImapSession::COperation(CImapSession::COperation::EMessageListing, sPath),
+        m_nUid(uid)
+    {
+        ostringstream os;
+        os << path() << ";UID=" << uid << ";SECTION=HEADER.FIELDS%20(FROM%20SUBJECT)";
+        path() = os.str();
+    }
+
+    void CImapSession::CListMessageOperation::completionRoutine(const std::string& data)
+    {
+        string sData = data;
+        ostringstream os;
+        os << m_nUid << "\t";
+        regex r("(.+)\r*\n");
+        smatch sm;
+        while (regex_search(sData, sm, r))
+        {
+            os << sm[1] << "\t";
+            sData = sm.suffix();
+        }
+        m_sListing = os.str();
+    }
+
+    const std::string& CImapSession::CListMessageOperation::listing() const
+    {
+        return m_sListing;
     }
 }

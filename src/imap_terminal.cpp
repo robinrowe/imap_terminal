@@ -34,7 +34,7 @@ namespace imap_terminal
 
     std::vector<std::string> CImapTerminal::__parseLine(const std::string& line) const
     {
-        return CUtils::tokenize(line, "\x20\x09");
+        return CUtils::cmdline(line);
     }
 
     bool CImapTerminal::__executeLine(const std::vector<std::string>& line)

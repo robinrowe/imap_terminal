@@ -2,7 +2,6 @@
 #define __imap_session__
 
 #include "./curl_session.h"
-#include <tree.hh>
 #include <stack>
 #include <string>
 
@@ -16,64 +15,116 @@ namespace imap_terminal
             const std::string& password,
             const std::string& host,
             const std::string& port = "993",
-            bool ssl = true);
+            bool ssl = true,
+            int limit = 20);
         virtual ~CImapSession();
 
         std::string pwd() const;
-        std::string ls(const std::string& dir = ".") const;
+        std::string ls(const std::string& dir = ".");
         std::string cd(const std::string& dir = ".");
         std::string whoami() const;
-
-        class CMailboxObject
-        {
-        public:
-            CMailboxObject();
-            CMailboxObject(const std::string& name);
-            virtual ~CMailboxObject();
-
-            virtual std::string render() const;
-            virtual bool operator==(const CMailboxObject& other) const;
-
-            const std::string& name() const;
-            std::string& name();
-        private:
-            std::string m_sName;
-        };
-
+                
         const std::string& host() const;
-
-        class CMailboxDirectory : public CMailboxObject
-        {
-        public:
-            CMailboxDirectory(const std::string& name);
-            CMailboxDirectory();
-        };
-
-        class CEmailMessage : public CMailboxObject
-        {};
 
     protected:
         virtual void handleData(std::string data);
 
     private:
-        enum EExpectState
+
+        class COperation
         {
-            EExpectListing          = 0,
-            EExpectExamination      = 1
+        public:
+            enum EOperationType
+            {
+                ECheckDirectoryExists       = 0,
+                ECheckLogin                 = 1,
+                EDirectoryListing           = 2,
+                EMessageListing             = 3
+            };
+
+            virtual ~COperation();
+
+            virtual void completionRoutine(const std::string& data);
+
+            const EOperationType& type() const;
+            const std::string& path() const;
+            const std::string& command() const;
+
+            EOperationType& type();
+            std::string& path();
+            std::string& command();
+
+        protected:
+            COperation(EOperationType type,
+                const std::string& path = "/",
+                const std::string& command = "");
+
+            
+
+        private:
+            EOperationType m_Type;
+            std::string m_sPath;
+            std::string m_sCommand;
+
+        };
+
+        class CCheckLoginOperation : public COperation
+        {
+        public:
+            CCheckLoginOperation();
+            
+        };
+
+        class CCheckDirectoryOperation : public COperation
+        {
+        public:
+            CCheckDirectoryOperation(const std::string& path);
+            virtual void completionRoutine(const std::string& data);
+
+            const std::string& directoryData() const;
+            const int& maxUid() const;
+        private:
+            std::string m_sDirData;
+            int m_nMaxUid;
+        };
+
+        class CListSubdirOperation : public COperation
+        {
+        public:
+            CListSubdirOperation(const std::string& path);
+            virtual void completionRoutine(const std::string& data);
+
+            const std::string& listing() const;
+        private:
+            std::string m_sListing;
+        };
+
+        class CListMessageOperation : public COperation
+        {
+        public:
+            CListMessageOperation(const std::string& path, int uid);
+            virtual void completionRoutine(const std::string& data);
+
+            const std::string& listing() const;
+        private:
+            std::string m_sListing;
+            int m_nUid;
         };
 
         std::string m_sHost;
         std::string m_sPort;
         std::string m_sUsername;
-        EExpectState m_ExpectState;
-        tree<CMailboxObject> m_MailboxStructure;
-        tree<CMailboxObject>::iterator m_CurrentPosition;
+        bool m_bUseSSL;
+        int m_nLimit;
+        COperation* m_CurrentOperation;
+        std::vector<std::string> m_CurrentPath;
 
-        void __moveTreePos(const std::string& where, tree<CMailboxObject>::iterator& pos) const;
+        std::string __path(const std::vector < std::string >& vec ) const;
+        std::string __absPath(const std::string& dir) const;
+        bool __checkDirectoryExists(const std::string& dir);
+        void __testLogin();
+        void __runOperation();
     };
-
-
-    std::ostream& operator<<(std::ostream& out, const CImapSession::CMailboxObject& obj);
 }
 
 #endif

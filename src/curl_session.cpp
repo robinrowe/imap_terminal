@@ -67,6 +67,7 @@ namespace imap_terminal
 
     void CCurlSession::perform()
     {
+        m_sCurlOutput = "";
         CURLcode status = ::curl_easy_perform(m_EasyHandle);
         if (CURLE_OK != status)
         {
@@ -102,4 +103,33 @@ namespace imap_terminal
         reinterpret_cast<CCurlSession*>(userdata)->m_sCurlOutput += string(&(buf[0]));
         return size * nmemb;
     }
+
+    CCurlSession::CSList::CSList() : 
+        m_pCurlSList(NULL)
+    {
+        
+    }
+
+    CCurlSession::CSList::CSList(const CCurlSession::CSList&)
+    {
+        throw logic_error("Should never get here");
+    }
+
+    CCurlSession::CSList::~CSList()
+    {
+        ::curl_slist_free_all(m_pCurlSList);
+    }
+
+    CCurlSession::CSList& CCurlSession::CSList::operator<<(const std::string& s)
+    {
+        m_pCurlSList = ::curl_slist_append(m_pCurlSList, s.c_str());
+        return *this;
+    }
+
+    struct curl_slist* CCurlSession::CSList::slist()
+    {
+        return m_pCurlSList;
+    }
+
+
 }

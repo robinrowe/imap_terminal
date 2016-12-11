@@ -1,6 +1,6 @@
 #include <iostream>
-#include <tree_util.hh>
 #include "./imap_terminal.h"
+#include "./utils.h"
 
 using namespace std;
 using namespace imap_terminal;
@@ -13,14 +13,9 @@ int main()
             "imap.terminal.test@gmail.com",
             "1234567890q",
             "imap.gmail.com");
-        /*tree<string> tr;
-        tree<string>::iterator top, one, two, loc, banana;
 
-        top = tr.begin();
-        one = tr.insert(top, "one");
-        two = tr.append_child(one, "two");
-
-        kptree::print_tree_bracketed(tr);*/
+        
+        
     }
     catch (const exception& e)
     {

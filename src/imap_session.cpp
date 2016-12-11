@@ -68,18 +68,21 @@ namespace imap_terminal
             sListing = static_cast<CListSubdirOperation*>(m_CurrentOperation)->listing();
             delete m_CurrentOperation; m_CurrentOperation = NULL;
 
-            //2. Message listing
-            m_CurrentOperation = new CCheckDirectoryOperation(sAbsPath);
-            __runOperation();
-            int nMaxUid = static_cast<CCheckDirectoryOperation*>(m_CurrentOperation)->maxUid();
-            delete m_CurrentOperation; m_CurrentOperation = NULL;
-
-            for (int i = 0; i < m_nLimit && nMaxUid > 0; i++, nMaxUid--)
+            if (sAbsPath != "/")
             {
-                m_CurrentOperation = new CListMessageOperation(sAbsPath, nMaxUid);
+                //2. Message listing
+                m_CurrentOperation = new CCheckDirectoryOperation(sAbsPath);
                 __runOperation();
-                sListing += static_cast<CListMessageOperation*>(m_CurrentOperation)->listing() + "\n";
+                int nMaxUid = static_cast<CCheckDirectoryOperation*>(m_CurrentOperation)->maxUid();
                 delete m_CurrentOperation; m_CurrentOperation = NULL;
+
+                for (int i = 0; i < m_nLimit && nMaxUid > 0; i++, nMaxUid--)
+                {
+                    m_CurrentOperation = new CListMessageOperation(sAbsPath, nMaxUid);
+                    __runOperation();
+                    sListing += static_cast<CListMessageOperation*>(m_CurrentOperation)->listing() + "\n";
+                    delete m_CurrentOperation; m_CurrentOperation = NULL;
+                }
             }
         }
         catch (const exception& e)

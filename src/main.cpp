@@ -12,9 +12,13 @@ int main()
         CImapTerminal terminal(
             "imap.terminal.test@gmail.com",
             "1234567890q",
-            "imap.gmail.com");
+            "imap.gmail.com");        
 
-        
+        /*vector<string> v = CUtils::cmdline("command -src=\"sdf fg\" -dst \"123 456\"", " ");
+        for (vector<string>::iterator i = v.begin(); i != v.end(); i++)
+        {
+            cout << "<" << *i << ">" << endl;
+        }*/
         
     }
     catch (const exception& e)

@@ -8,6 +8,7 @@
     <ClCompile Include="src\curl_exception.cpp" />
     <ClCompile Include="src\imap_terminal.cpp" />
     <ClCompile Include="src\utils.cpp" />
+    <ClCompile Include="src\CommandLine.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\curl_session.h" />
@@ -15,5 +16,6 @@
     <ClInclude Include="src\curl_exception.h" />
     <ClInclude Include="src\imap_terminal.h" />
     <ClInclude Include="src\utils.h" />
+    <ClInclude Include="src\CommandLine.h" />
   </ItemGroup>
 </Project>

@@ -2,6 +2,7 @@
 #define __imap_session__
 
 #include "./curl_session.h"
+#include "./CommandLine.h"
 #include <stack>
 #include <string>
 
@@ -20,7 +21,7 @@ namespace imap_terminal
         virtual ~CImapSession();
 
         std::string pwd() const;
-        std::string ls(const std::string& dir = ".");
+        std::string ls(portable::CommandLine& );
         std::string cd(const std::string& dir = ".");
         std::string whoami() const;
                 
@@ -102,13 +103,20 @@ namespace imap_terminal
         class CListMessageOperation : public COperation
         {
         public:
-            CListMessageOperation(const std::string& path, int uid);
+            CListMessageOperation(const std::string& path, int uid, 
+                const std::string& from = "",
+                const std::string& to = "",
+                const std::string& subject = "");
+
             virtual void completionRoutine(const std::string& data);
 
             const std::string& listing() const;
         private:
             std::string m_sListing;
             int m_nUid;
+            std::string m_sFrom;
+            std::string m_sTo;
+            std::string m_sSubject;
         };
 
         std::string m_sHost;

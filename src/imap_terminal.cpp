@@ -1,5 +1,6 @@
 #include "./imap_terminal.h"
 #include "./utils.h"
+#include "./CommandLine.h"
 #include <iostream>
 
 using namespace std;
@@ -49,14 +50,8 @@ namespace imap_terminal
         }
         else if (line[0] == "ls")
         {
-            if (line.size() == 2)
-            {
-                cout << ls(line[1]) << endl;
-            }
-            else
-            {
-                cout << ls() << endl;
-            }
+            portable::CommandLine cmdLine(line);
+            cout << ls(cmdLine) << endl;
         }
         else if (line[0] == "cd")
         {

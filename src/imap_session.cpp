@@ -49,9 +49,19 @@ namespace imap_terminal
         return __path(m_CurrentPath);
     }
 
-    std::string CImapSession::ls(const std::string& dir)
+    std::string CImapSession::ls(portable::CommandLine& cmdLine)
     {
         string sListing;
+        string dir;
+        
+        if (cmdLine.operand() == NULL)
+        {
+            dir = ".";
+        }
+        else
+        {
+            dir = cmdLine.operand();
+        }
         
         try
         {
@@ -78,9 +88,22 @@ namespace imap_terminal
 
                 for (int i = 0; i < m_nLimit && nMaxUid > 0; i++, nMaxUid--)
                 {
-                    m_CurrentOperation = new CListMessageOperation(sAbsPath, nMaxUid);
+                    std::string from = (cmdLine.Get("-from") == NULL) ? "" : cmdLine.Get("-from");
+                    from = (cmdLine.Get("-f") != NULL && from.length() == 0) ? cmdLine.Get("-f") : "";
+
+                    std::string to = (cmdLine.Get("-to") == NULL) ? "" : cmdLine.Get("-to");
+                    to = (cmdLine.Get("-t") != NULL && to.length() == 0) ? cmdLine.Get("-t") : "";
+                    
+                    std::string subject = (cmdLine.Get("-subject") == NULL) ? "" : cmdLine.Get("-s");
+                    subject = (cmdLine.Get("-s") != NULL && subject.length() == 0) ? cmdLine.Get("-s") : "";
+
+                    m_CurrentOperation = new CListMessageOperation(sAbsPath, nMaxUid, from, to, subject);
+                        
                     __runOperation();
-                    sListing += static_cast<CListMessageOperation*>(m_CurrentOperation)->listing() + "\n";
+                    if (static_cast<CListMessageOperation*>(m_CurrentOperation)->listing().length() > 0)
+                    {
+                        sListing += static_cast<CListMessageOperation*>(m_CurrentOperation)->listing() + "\n";
+                    }
                     delete m_CurrentOperation; m_CurrentOperation = NULL;
                 }
             }
@@ -373,12 +396,18 @@ namespace imap_terminal
         return m_sListing;
     }
 
-    CImapSession::CListMessageOperation::CListMessageOperation(const std::string& sPath, int uid) : 
+    CImapSession::CListMessageOperation::CListMessageOperation(const std::string& sPath, int uid,
+        const std::string& from,
+        const std::string& to,
+        const std::string& subject) :
+        m_sFrom(from),
+        m_sTo(to),
+        m_sSubject(subject),
         CImapSession::COperation(CImapSession::COperation::EMessageListing, sPath),
         m_nUid(uid)
     {
         ostringstream os;
-        os << path() << ";UID=" << uid << ";SECTION=HEADER.FIELDS%20(FROM%20SUBJECT)";
+        os << path() << ";UID=" << uid << ";SECTION=HEADER.FIELDS%20(FROM%20SUBJECT%20TO)";
         path() = os.str();
     }
 
@@ -386,14 +415,46 @@ namespace imap_terminal
     {
         string sData = data;
         ostringstream os;
-        os << m_nUid << "\t";
+        
         regex r("(.+)\r*\n");
         smatch sm;
+
+        string sFrom, sTo, sSubject;
+
         while (regex_search(sData, sm, r))
         {
-            os << sm[1] << "\t";
+            string sAttr = sm[1];
+            smatch sm1;
+            
+            if (regex_search(sAttr, sm1, regex("[Ff]{1}[Rr]{1}[Oo]{1}[Mm]{1}:")))
+            {
+                sFrom = CUtils::trim(sm1.suffix());
+            }
+            else if (regex_search(sAttr, sm1, regex("[Tt]{1}[Oo]{1}:")))
+            {
+                sTo = CUtils::trim(sm1.suffix());
+            }
+            else if (regex_search(sAttr, sm1, regex("[Ss]{1}[Uu]{1}[Bb]{1}[Jj]{1}[Ee]{1}[Cc]{1}[Tt]{1}:")))
+            {
+                sSubject = CUtils::trim(sm1.suffix());
+            }
+            
             sData = sm.suffix();
         }
+
+        bool fMatch = true;
+        if (m_sFrom.length() > 0 && sFrom != m_sFrom || 
+            m_sTo.length() > 0 && sTo != m_sTo ||
+            m_sSubject.length() > 0 && sSubject != m_sSubject)
+        {
+            fMatch = false;
+        }
+
+        if (fMatch)
+        {
+            os << "UID=" << m_nUid << "\t" << "Subject: " << sSubject << "\t" << "From: " << sFrom;
+        }
+
         m_sListing = os.str();
     }
 

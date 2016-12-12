@@ -79,6 +79,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)lib\common;$(SolutionDir)lib\windows\curl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(SolutionDir)lib\windows\curl\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -126,6 +127,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\CommandLine.cpp" />
     <ClCompile Include="src\curl_exception.cpp" />
     <ClCompile Include="src\curl_session.cpp" />
     <ClCompile Include="src\example.cpp" />
@@ -135,6 +137,7 @@
     <ClCompile Include="src\utils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\CommandLine.h" />
     <ClInclude Include="src\curl_exception.h" />
     <ClInclude Include="src\curl_session.h" />
     <ClInclude Include="src\imap_session.h" />

@@ -87,7 +87,7 @@
       <SubSystem>Console</SubSystem>
     </Link>
     <CustomBuildStep>
-      <Command>copy $(SolutionDir)lib\windows\curl\bin\libcurl.dll $(OutputPath) &amp; copy $(SolutionDir)lib\windows\curl\bin\curl.exe $(OutputPath)</Command>
+      <Command>copy $(SolutionDir)lib\windows\curl\bin\libcurl.dll $(OutputPath)</Command>
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>dummy.out</Outputs>

@@ -3,6 +3,7 @@
 #include <sstream>
 #include <exception>
 #include <ios>
+#include  <iomanip>
 
 using namespace std;
 
@@ -24,6 +25,11 @@ namespace imap_terminal
 
     std::vector<std::string> CUtils::cmdline(std::string src, std::string delimiters, char grouping)
     {
+        ostringstream hexGrouping;
+        hexGrouping << "\\x" << setfill('0') << setw(2) << std::hex << (int)grouping;
+        string sHexGrp = hexGrouping.str();
+        src = regex_replace(src, regex(string("\\\\") + string(1, grouping)), hexGrouping.str());
+
         ostringstream groupedSequence;
         bool inGrouping = false;
         for (string::size_type i = 0; i < src.length(); ++i)
@@ -31,6 +37,7 @@ namespace imap_terminal
             if (src.at(i) == grouping)
             {
                 inGrouping = !inGrouping;
+
             }
             else
             {

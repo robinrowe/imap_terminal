@@ -52,72 +52,56 @@ namespace imap_terminal
     std::string CImapSession::ls(portable::CommandLine& cmdLine)
     {
         string sListing;
-        string dir;
-        
-        if (cmdLine.operand() == NULL)
+        if (cmdLine.empty())
         {
-            dir = ".";
-        }
-        else
-        {
-            dir = cmdLine.operand();
-        }
-        
-        try
-        {
-            if (!__checkDirectoryExists(dir))
-            {
-                return string("No such file or directory");
-            }
-            
-            string sAbsPath = __absPath(dir);
-
-            //1. Subdirectory listing
-            m_CurrentOperation = new CListSubdirOperation(sAbsPath);
+            //no command line args - list subdirs
+            m_CurrentOperation = new CListSubdirOperation(__path(m_CurrentPath));
             __runOperation();
             sListing = static_cast<CListSubdirOperation*>(m_CurrentOperation)->listing();
             delete m_CurrentOperation; m_CurrentOperation = NULL;
-
-            if (sAbsPath != "/")
-            {
-                //2. Message listing
-                m_CurrentOperation = new CCheckDirectoryOperation(sAbsPath);
-                __runOperation();
-                int nMaxUid = static_cast<CCheckDirectoryOperation*>(m_CurrentOperation)->maxUid();
-                delete m_CurrentOperation; m_CurrentOperation = NULL;
-
-                for (int i = 0; i < m_nLimit && nMaxUid > 0; i++, nMaxUid--)
-                {
-                    std::string from = (cmdLine.Get("-from") == NULL) ? "" : cmdLine.Get("-from");
-                    from = (cmdLine.Get("-f") != NULL && from.length() == 0) ? cmdLine.Get("-f") : "";
-
-                    std::string to = (cmdLine.Get("-to") == NULL) ? "" : cmdLine.Get("-to");
-                    to = (cmdLine.Get("-t") != NULL && to.length() == 0) ? cmdLine.Get("-t") : "";
-                    
-                    std::string subject = (cmdLine.Get("-subject") == NULL) ? "" : cmdLine.Get("-s");
-                    subject = (cmdLine.Get("-s") != NULL && subject.length() == 0) ? cmdLine.Get("-s") : "";
-
-                    m_CurrentOperation = new CListMessageOperation(sAbsPath, nMaxUid, from, to, subject);
-                        
-                    __runOperation();
-                    if (static_cast<CListMessageOperation*>(m_CurrentOperation)->listing().length() > 0)
-                    {
-                        sListing += static_cast<CListMessageOperation*>(m_CurrentOperation)->listing() + "\n";
-                    }
-                    delete m_CurrentOperation; m_CurrentOperation = NULL;
-                }
-            }
         }
-        catch (const exception& e)
+        
+        if (m_CurrentPath.size() > 0)
         {
-            if (m_CurrentOperation != NULL)
-            {
-                delete m_CurrentOperation;
-            }
-            return e.what();
+            sListing += __runMessageOperation<CListMessageOperation>(cmdLine);
         }
         
         return sListing;
+    }
+
+    std::string CImapSession::rm(portable::CommandLine& cmdLine)
+    {
+        return "";
+    }
+
+    std::string CImapSession::mkdir(const std::string& dir)
+    {
+        if (CUtils::tokenize(dir, "/").size() > 1)
+        {
+            return string("This command allows only creating a subdirectory inside current directory.");
+        }
+
+        m_CurrentOperation = new CMakeDirectoryOperation(dir, __path(m_CurrentPath));
+        __runOperation();
+        delete m_CurrentOperation;
+        m_CurrentOperation = NULL;
+
+        return string("");
+    }
+
+    std::string CImapSession::rmdir(const std::string& dir)
+    {
+        if (CUtils::tokenize(dir, "/").size() > 1)
+        {
+            return string("This command allows only removing a subdirectory inside current directory.");
+        }
+
+        m_CurrentOperation = new CRemoveDirectoryOperation(dir, __path(m_CurrentPath));
+        __runOperation();
+        delete m_CurrentOperation;
+        m_CurrentOperation = NULL;
+
+        return string("");
     }
 
     std::string CImapSession::cd(const std::string& dir)
@@ -252,9 +236,21 @@ namespace imap_terminal
         string url = (m_bUseSSL ? string("imaps://") : string("imap://")) +
             m_sHost +
             string(":") +
-            m_sPort +
-            m_CurrentOperation->path();
+            m_sPort;
 
+        char* pUrl = ::curl_easy_escape(easyHandle(), m_CurrentOperation->path().c_str(), m_CurrentOperation->path().length());
+        string escapedPath = (pUrl == NULL) ? string("") : string(pUrl);
+        ::curl_free(pUrl);
+
+        escapedPath = regex_replace(escapedPath, regex("\\%2F"), "/");
+        escapedPath = regex_replace(escapedPath, regex("\\%3B"), ";");
+        escapedPath = regex_replace(escapedPath, regex("\\%3D"), "=");
+        escapedPath = regex_replace(escapedPath, regex("\\%25"), "%");
+        escapedPath = regex_replace(escapedPath, regex("\\%28"), "(");
+        escapedPath = regex_replace(escapedPath, regex("\\%29"), ")");
+
+        url += escapedPath;
+        
         CCurlException::testCurlCode(::curl_easy_setopt(const_cast<CURL*>(easyHandle()), CURLOPT_URL, (url).c_str()));
 
         if (m_CurrentOperation->command().length() > 0)
@@ -277,10 +273,8 @@ namespace imap_terminal
     }
 
     CImapSession::COperation::COperation(
-        EOperationType type,
         const std::string& path,
         const std::string& command) : 
-        m_Type(type),
         m_sPath(path),
         m_sCommand(command)
     {
@@ -297,11 +291,6 @@ namespace imap_terminal
         
     }
 
-    const CImapSession::COperation::EOperationType& CImapSession::COperation::type() const
-    {
-        return m_Type;
-    }
-
     const std::string& CImapSession::COperation::path() const
     {
         return m_sPath;
@@ -310,11 +299,6 @@ namespace imap_terminal
     const std::string& CImapSession::COperation::command() const
     {
         return m_sCommand;
-    }
-
-    CImapSession::COperation::EOperationType& CImapSession::COperation::type()
-    {
-        return m_Type;
     }
 
     std::string& CImapSession::COperation::path()
@@ -328,15 +312,15 @@ namespace imap_terminal
     }
 
     CImapSession::CCheckLoginOperation::CCheckLoginOperation() : 
-        CImapSession::COperation(CImapSession::COperation::ECheckLogin)
+        CImapSession::COperation()
     {
 
     }
 
     CImapSession::CCheckDirectoryOperation::CCheckDirectoryOperation(const std::string& sPath) : 
-        CImapSession::COperation(CImapSession::COperation::ECheckDirectoryExists, sPath)
+        CImapSession::COperation(sPath)
     {
-        command() = string("EXAMINE ") + path().substr(1, path().length() - 1);
+        command() = string("EXAMINE \"") + path().substr(1, path().length() - 1) + string("\"");
         path() = "";
     }
 
@@ -364,7 +348,7 @@ namespace imap_terminal
     }
 
     CImapSession::CListSubdirOperation::CListSubdirOperation(const std::string& path) : 
-        CImapSession::COperation(CImapSession::COperation::EDirectoryListing, path)
+        CImapSession::COperation(path)
     {
     
     }
@@ -403,11 +387,11 @@ namespace imap_terminal
         m_sFrom(from),
         m_sTo(to),
         m_sSubject(subject),
-        CImapSession::COperation(CImapSession::COperation::EMessageListing, sPath),
+        CImapSession::COperation(sPath),
         m_nUid(uid)
     {
         ostringstream os;
-        os << path() << ";UID=" << uid << ";SECTION=HEADER.FIELDS%20(FROM%20SUBJECT%20TO)";
+        os << path() << ";UID=" << uid << ";SECTION=HEADER.FIELDS (FROM SUBJECT TO)";
         path() = os.str();
     }
 
@@ -461,5 +445,21 @@ namespace imap_terminal
     const std::string& CImapSession::CListMessageOperation::listing() const
     {
         return m_sListing;
+    }
+
+    CImapSession::CMakeDirectoryOperation::CMakeDirectoryOperation(
+        const std::string& newDir,
+        const std::string& currentPath) : 
+        CImapSession::COperation(currentPath, string("CREATE ") + newDir)
+    {
+    
+    }
+
+    CImapSession::CRemoveDirectoryOperation::CRemoveDirectoryOperation(
+        const std::string& rmDir, 
+        const std::string& currentPath) : 
+        CImapSession::COperation(currentPath, string("DELETE ") + rmDir)
+    {
+    
     }
 }

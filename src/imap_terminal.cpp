@@ -40,33 +40,61 @@ namespace imap_terminal
 
     bool CImapTerminal::__executeLine(const std::vector<std::string>& line)
     {
-        if (line[0] == "exit")
+        try
         {
-            return false;
-        }
-        else if (line[0] == "pwd")
-        {
-            cout << pwd() << endl;
-        }
-        else if (line[0] == "ls")
-        {
-            portable::CommandLine cmdLine(line);
-            cout << ls(cmdLine) << endl;
-        }
-        else if (line[0] == "cd")
-        {
-            if (line.size() == 2)
+            if (line[0] == "exit")
             {
-                cout << cd(line[1]) << endl;
+                return false;
             }
-            else
+            else if (line[0] == "pwd")
             {
-                cout << cd() << endl;
+                cout << pwd() << endl;
+            }
+            else if (line[0] == "ls")
+            {
+                portable::CommandLine cmdLine(line);
+                cout << ls(cmdLine) << endl;
+            }
+            else if (line[0] == "cd")
+            {
+                if (line.size() >= 2)
+                {
+                    cout << cd(line[1]) << endl;
+                }
+                else
+                {
+                    cout << cd() << endl;
+                }
+            }
+            else if (line[0] == "whoami")
+            {
+                cout << whoami() << endl;
+            }
+            else if (line[0] == "mkdir")
+            {
+                if (line.size() < 2)
+                {
+                    cout << "Failed to parse command line" << endl;
+                }
+                cout << mkdir(line[1]) << endl;
+            }
+            else if (line[0] == "rmdir")
+            {
+                if (line.size() < 2)
+                {
+                    cout << "Failed to parse command line" << endl;
+                }
+                cout << rmdir(line[1]) << endl;
+            }
+            else if (line[0] == "rm")
+            {
+                portable::CommandLine cmdLine(line);
+                cout << rm(cmdLine) << endl;
             }
         }
-        else if (line[0] == "whoami")
+        catch (const exception& e)
         {
-            cout << whoami() << endl;
+            cout << e.what() << endl;
         }
         
         return true;

@@ -9,7 +9,7 @@ using namespace std;
 namespace portable
 {
 
-void CommandLine::Set(int argc,const char** argv)
+void CommandLine::Set(int argc,char** argv)
 {	this->argc = argc;
 	this->argv = argv;
 	// skip arg[0] = prog_name
@@ -51,7 +51,7 @@ CommandLine::CommandLine(const std::vector<std::string>& argvVector)
         argv[n] = const_cast<char*>((*i).c_str());
     }
 
-    Set(argvVector.size(), const_cast<const char**>(&(argv[0])));
+    Set(argvVector.size(), (&(argv[0])));
 }
 
 const char* CommandLine::operand() const

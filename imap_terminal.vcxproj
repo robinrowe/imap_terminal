@@ -130,7 +130,6 @@
     <ClCompile Include="src\CommandLine.cpp" />
     <ClCompile Include="src\curl_exception.cpp" />
     <ClCompile Include="src\curl_session.cpp" />
-    <ClCompile Include="src\example.cpp" />
     <ClCompile Include="src\imap_session.cpp" />
     <ClCompile Include="src\imap_terminal.cpp" />
     <ClCompile Include="src\main.cpp" />

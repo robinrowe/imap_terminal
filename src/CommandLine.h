@@ -17,19 +17,19 @@ namespace portable
 class CommandLine
 {	std::map<std::string,std::string> data;
 	int argc;
-	const char** argv;
+	char** argv;
 public:
 	CommandLine()
 	{	argc = 0;
 		argv = nullptr;
 	}
-	CommandLine(int argc,const char** argv)
+	CommandLine(int argc, char** argv)
 	{	Set(argc,argv);
 	}
 
     CommandLine(const std::vector<std::string>& argv);
     
-	void Set(int argc,const char** argv);
+	void Set(int argc,char** argv);
     void Append(const char* keyval);
 	const char* Get(const char* key) const
 	{	const auto it = data.find(key);

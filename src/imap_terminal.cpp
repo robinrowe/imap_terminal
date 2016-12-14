@@ -72,11 +72,14 @@ namespace imap_terminal
             }
             else if (line[0] == "mkdir")
             {
-                if (line.size() < 2)
+                if (line.size() != 2)
                 {
                     cout << "Failed to parse command line" << endl;
                 }
-                cout << mkdir(line[1]) << endl;
+                else
+                {
+                    cout << mkdir(line[1]) << endl;
+                }
             }
             else if (line[0] == "rmdir")
             {
@@ -84,12 +87,34 @@ namespace imap_terminal
                 {
                     cout << "Failed to parse command line" << endl;
                 }
-                cout << rmdir(line[1]) << endl;
+                else
+                {
+                    cout << rmdir(line[1]) << endl;
+                }
             }
             else if (line[0] == "rm")
             {
                 portable::CommandLine cmdLine(line);
                 cout << rm(cmdLine) << endl;
+            }
+            else if (line[0] == "limit")
+            {
+                if (line.size() == 2)
+                {
+                    cout << limit(line[1]) << endl;
+                }
+                else if(line.size() == 1)
+                {
+                    cout << limit() << endl;
+                }
+                else
+                {
+                    cout << "Failed to parse command line" << endl;
+                }
+            }
+            else
+            {
+                //display help message
             }
         }
         catch (const exception& e)

@@ -30,6 +30,7 @@ namespace imap_terminal
         std::string whoami() const;
         std::string mkdir(const std::string& dir);
         std::string rmdir(const std::string& dir);
+        std::string limit(const std::string& arg = "");
                 
         const std::string& host() const;
 
@@ -96,31 +97,60 @@ namespace imap_terminal
             std::string m_sListing;
         };
 
-        class CListMessageOperation : public COperation
+        class CSelectMessageOperation : public COperation
         {
         public:
-            CListMessageOperation(const std::string& path, int uid, 
+            CSelectMessageOperation(const std::string& path, int uid,
                 const std::string& from = "",
                 const std::string& to = "",
                 const std::string& subject = "");
 
             virtual void completionRoutine(const std::string& data);
 
-            const std::string& listing() const;
+            bool match() const;
+
         private:
-            std::string m_sListing;
-            int m_nUid;
+            bool m_fMatch;
             std::string m_sFrom;
             std::string m_sTo;
             std::string m_sSubject;
+            int m_nUid;
         };
 
-        /*class CRemoveMessageOperation : public COperation
+        class CMessageOperation : public COperation
         {
         public:
+            virtual void completionRoutine(const std::string& data);
+            const std::string& listing() const;
+            virtual ~CMessageOperation();
+            
+        protected:
+            CMessageOperation(const std::string& path, int uid);            
 
-        };*/
+            std::string m_sListing;
+            int m_nUid;
+        };
 
+        
+
+        class CListMessageOperation : public CMessageOperation
+        {
+        public:
+            CListMessageOperation(const std::string& path, int uid);
+
+            virtual void completionRoutine(const std::string& data);
+        };
+
+        class CRemoveMessageOperation : public CMessageOperation
+        {
+        public:
+            CRemoveMessageOperation(const std::string& path, int uid);
+
+            virtual void completionRoutine(const std::string& data);
+
+        };
+
+        
         class CMakeDirectoryOperation : public COperation
         {
         public:
@@ -165,22 +195,36 @@ namespace imap_terminal
                 for (int i = 0; i < m_nLimit && nMaxUid > 0; i++, nMaxUid--)
                 {
                     std::string from = (cmdLine.Get("-from") == NULL) ? "" : cmdLine.Get("-from");
-                    from = (cmdLine.Get("-f") != NULL && from.length() == 0) ? cmdLine.Get("-f") : "";
-
+                    if (from.length() <= 0)
+                    {
+                        from = (cmdLine.Get("-f") == NULL) ? "" : cmdLine.Get("-f");
+                    }
+                    
                     std::string to = (cmdLine.Get("-to") == NULL) ? "" : cmdLine.Get("-to");
-                    to = (cmdLine.Get("-t") != NULL && to.length() == 0) ? cmdLine.Get("-t") : "";
+                    if (to.length() <= 0)
+                    {
+                        to = (cmdLine.Get("-t") != NULL) ? cmdLine.Get("-t") : "";
+                    }
 
                     std::string subject = (cmdLine.Get("-subject") == NULL) ? "" : cmdLine.Get("-s");
-                    subject = (cmdLine.Get("-s") != NULL && subject.length() == 0) ? cmdLine.Get("-s") : "";
+                    if (subject.length() <= 0)
+                    {
+                        subject = (cmdLine.Get("-s") != NULL) ? cmdLine.Get("-s") : "";
+                    }
 
-                    m_CurrentOperation = new T(__path(m_CurrentPath), nMaxUid, from, to, subject);
+                    m_CurrentOperation = new CSelectMessageOperation(__path(m_CurrentPath), nMaxUid, from, to, subject);
                     try
                     {
                         __runOperation();
-                        if (static_cast<T*>(m_CurrentOperation)->listing().length() > 0)
+                        if (static_cast<CSelectMessageOperation*>(m_CurrentOperation)->match())
                         {
+                            delete m_CurrentOperation; m_CurrentOperation = NULL;
+
+                            m_CurrentOperation = new T(__path(m_CurrentPath), nMaxUid);
+                            __runOperation();
                             sOutput += static_cast<T*>(m_CurrentOperation)->listing() + "\n";
                         }
+                        
                         delete m_CurrentOperation; m_CurrentOperation = NULL;
                     }
                     catch (const exception& e)

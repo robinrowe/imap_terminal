@@ -42,7 +42,7 @@ namespace imap_terminal
     {
         try
         {
-            if (line[0] == "exit")
+            if (line[0] == "exit" || line[0] == "quit")
             {
                 return false;
             }
@@ -111,6 +111,11 @@ namespace imap_terminal
                 {
                     cout << "Failed to parse command line" << endl;
                 }
+            }
+            else if (line[0] == "head")
+            {
+                portable::CommandLine cmdLine(line);
+                cout << head(cmdLine) << endl;
             }
             else
             {

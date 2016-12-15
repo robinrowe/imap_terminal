@@ -74,6 +74,11 @@ namespace imap_terminal
         return __runMessageOperation<CRemoveMessageOperation>(cmdLine);
     }
 
+    std::string CImapSession::head(portable::CommandLine& cmdLine)
+    {
+        return __runMessageOperation<CHeadOperation>(cmdLine);
+    }
+
     std::string CImapSession::mkdir(const std::string& dir)
     {
         if (CUtils::tokenize(dir, "/").size() > 1)
@@ -515,6 +520,19 @@ namespace imap_terminal
         }
 
         m_sListing = os.str();
+    }
+
+    CImapSession::CHeadOperation::CHeadOperation(const std::string& sPath, int uid) : 
+        CImapSession::CMessageOperation(sPath, uid)
+    {
+        ostringstream os;
+        os << path() << ";UID=" << uid << ";SECTION=TEXT";
+        path() = os.str();
+    }
+
+    void CImapSession::CHeadOperation::completionRoutine(const std::string& data)
+    {
+        m_sListing = data.substr(0, min(data.length(), 500) );
     }
 
     CImapSession::CMakeDirectoryOperation::CMakeDirectoryOperation(

@@ -26,6 +26,7 @@ namespace imap_terminal
         std::string pwd() const;
         std::string ls(portable::CommandLine& );
         std::string rm(portable::CommandLine&);
+        std::string head(portable::CommandLine&);
         std::string cd(const std::string& dir = ".");
         std::string whoami() const;
         std::string mkdir(const std::string& dir);
@@ -145,6 +146,15 @@ namespace imap_terminal
         {
         public:
             CRemoveMessageOperation(const std::string& path, int uid);
+
+            virtual void completionRoutine(const std::string& data);
+
+        };
+
+        class CHeadOperation : public CMessageOperation
+        {
+        public:
+            CHeadOperation(const std::string& path, int uid);
 
             virtual void completionRoutine(const std::string& data);
 

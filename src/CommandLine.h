@@ -61,8 +61,9 @@ public:
 		return data.end()!=it;
 	}
 
-    const char* operand() const;
+    const char* operand(int i = 0) const;
     bool empty() const;
+    std::map<std::string, std::string>::size_type size();
 	std::string toString();
 };
 

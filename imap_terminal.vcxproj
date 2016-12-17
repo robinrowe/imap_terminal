@@ -71,7 +71,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)build\$(Configuration)\</IntDir>
-    <TargetName>$(ProjectName)0</TargetName>
+    <TargetName>$(ProjectName)</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -130,6 +130,7 @@
     <ClCompile Include="src\CommandLine.cpp" />
     <ClCompile Include="src\curl_exception.cpp" />
     <ClCompile Include="src\curl_session.cpp" />
+    <ClCompile Include="src\imap_operations.cpp" />
     <ClCompile Include="src\imap_session.cpp" />
     <ClCompile Include="src\imap_terminal.cpp" />
     <ClCompile Include="src\main.cpp" />

@@ -97,6 +97,11 @@ namespace imap_terminal
                 portable::CommandLine cmdLine(line);
                 cout << rm(cmdLine) << endl;
             }
+            else if (line[0] == "mv")
+            {
+                portable::CommandLine cmdLine(line);
+                cout << mv(cmdLine) << endl;
+            }
             else if (line[0] == "limit")
             {
                 if (line.size() == 2)

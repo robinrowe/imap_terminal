@@ -4,6 +4,7 @@
 #include <iostream>
 #include <regex>
 #include <sstream>
+#include <cstdio>
 
 using namespace std;
 
@@ -35,7 +36,7 @@ namespace imap_terminal
 
         CCurlException::testCurlCode(::curl_easy_setopt(easyHandle(), CURLOPT_USERNAME, username.c_str()));
         CCurlException::testCurlCode(::curl_easy_setopt(easyHandle(), CURLOPT_PASSWORD, password.c_str()));
-
+        
         __testLogin();
     }
 
@@ -118,6 +119,93 @@ namespace imap_terminal
 
         m_CurrentPath = CUtils::tokenize(__absPath(dir), "/");
         return string("");
+    }
+
+    std::string CImapSession::mv(portable::CommandLine& cmdLine)
+    {
+        string sOutput;
+        if (cmdLine.size() < 2)
+        {
+            return "Failed to parse command line";
+        }
+
+        if (cmdLine.operand(0) != NULL && cmdLine.operand(1) == NULL)
+        {
+            //operand(0) is destination 
+            m_CurrentOperation = new CCheckDirectoryOperation(__path(m_CurrentPath));
+            __runOperation();
+            int nMaxUid = static_cast<CCheckDirectoryOperation*>(m_CurrentOperation)->maxUid();
+            delete m_CurrentOperation; m_CurrentOperation = NULL;
+
+            for (int i = 0; i < m_nLimit && nMaxUid > 0; i++, nMaxUid--)
+            {
+                std::string from = (cmdLine.Get("-from") == NULL) ? "" : cmdLine.Get("-from");
+                if (from.length() <= 0)
+                {
+                    from = (cmdLine.Get("-f") == NULL) ? "" : cmdLine.Get("-f");
+                }
+
+                std::string to = (cmdLine.Get("-to") == NULL) ? "" : cmdLine.Get("-to");
+                if (to.length() <= 0)
+                {
+                    to = (cmdLine.Get("-t") != NULL) ? cmdLine.Get("-t") : "";
+                }
+
+                std::string subject = (cmdLine.Get("-subject") == NULL) ? "" : cmdLine.Get("-s");
+                if (subject.length() <= 0)
+                {
+                    subject = (cmdLine.Get("-s") != NULL) ? cmdLine.Get("-s") : "";
+                }
+
+                m_CurrentOperation = new CSelectMessageOperation(__path(m_CurrentPath), nMaxUid, from, to, subject);
+                try
+                {
+                    __runOperation();
+                    if (static_cast<CSelectMessageOperation*>(m_CurrentOperation)->match())
+                    {
+                        delete m_CurrentOperation; m_CurrentOperation = NULL;
+
+                        m_CurrentOperation = new CMoveMessageOperation(__path(m_CurrentPath), nMaxUid, this, cmdLine.operand());
+                        __runOperation();
+                        
+                    }
+
+                    delete m_CurrentOperation; m_CurrentOperation = NULL;
+                }
+                catch (const exception& e)
+                {
+                    delete m_CurrentOperation; m_CurrentOperation = NULL;
+                    sOutput += std::string("ERROR: ") + std::string(e.what()) + "\n";
+                    continue;
+                }
+            }
+        }
+        else if (cmdLine.operand(0) != NULL && cmdLine.operand(1) != NULL)
+        {
+            bool f = true;
+            int nUID;
+            std::istringstream(cmdLine.operand(0)) >> std::dec >> nUID;
+            if (nUID < 0)
+            {
+                f = false;
+                std::istringstream(cmdLine.operand(1)) >> std::dec >> nUID;
+
+                if (nUID <= 0)
+                {
+                    return "Failed to parse command line";
+                }
+            }
+
+            m_CurrentOperation = new CMoveMessageOperation(__path(m_CurrentPath), nUID, this, 
+                f ? cmdLine.operand(1) : cmdLine.operand(0));
+            __runOperation();
+            delete m_CurrentOperation; m_CurrentOperation = NULL;
+        }
+        else
+        {
+            return "Failed to parse command line";
+        }
+        return sOutput;
     }
 
     bool CImapSession::__checkDirectoryExists(const std::string& dir)
@@ -292,264 +380,7 @@ namespace imap_terminal
         CCurlException::testCurlCode(::curl_easy_setopt(easyHandle(), CURLOPT_CUSTOMREQUEST, NULL));
     }
 
-    CImapSession::COperation::COperation(
-        const std::string& path,
-        const std::string& command) : 
-        m_sPath(path),
-        m_sCommand(command)
-    {
     
-    }
-
-    CImapSession::COperation::~COperation()
-    {
-    
-    }
-
-    void CImapSession::COperation::completionRoutine(const std::string& data)
-    {
-        
-    }
-
-    const std::string& CImapSession::COperation::path() const
-    {
-        return m_sPath;
-    }
-
-    const std::string& CImapSession::COperation::command() const
-    {
-        return m_sCommand;
-    }
-
-    std::string& CImapSession::COperation::path()
-    {
-        return m_sPath;
-    }
-
-    std::string& CImapSession::COperation::command()
-    {
-        return m_sCommand;
-    }
-
-    CImapSession::CCheckLoginOperation::CCheckLoginOperation() : 
-        CImapSession::COperation()
-    {
-
-    }
-
-    CImapSession::CCheckDirectoryOperation::CCheckDirectoryOperation(const std::string& sPath) : 
-        CImapSession::COperation(sPath)
-    {
-        command() = string("EXAMINE \"") + path().substr(1, path().length() - 1) + string("\"");
-        path() = "";
-    }
-
-    void CImapSession::CCheckDirectoryOperation::completionRoutine(const std::string& data)
-    {
-        m_sDirData = data;
-        regex r("([0-9]+) EXIST");
-        smatch sm;
-        while(regex_search(m_sDirData, sm, r))
-        {
-            istringstream strm(sm.str());
-            strm >> m_nMaxUid;
-            break;
-        }
-    }
-
-    const std::string& CImapSession::CCheckDirectoryOperation::directoryData() const
-    {
-        return m_sDirData;
-    }
-
-    const int& CImapSession::CCheckDirectoryOperation::maxUid() const
-    {
-        return m_nMaxUid;
-    }
-
-    CImapSession::CListSubdirOperation::CListSubdirOperation(const std::string& path) : 
-        CImapSession::COperation(path)
-    {
-    
-    }
-
-    void CImapSession::CListSubdirOperation::completionRoutine(const std::string& sData)
-    {
-        m_sListing = "";
-        string data = sData;
-        vector<string> pathToList = CUtils::tokenize(path(), "/");
-        regex imapListResponse("\\x2A\\s+LIST\\s+\\([\\\\a-zA-Z\\s]+\\)\\s+\"*([^\"]+)\"*\\s+\"*([^\"]+)\"*");
-        smatch sm;
-        while (regex_search(data, sm, imapListResponse))
-        {
-            string path = sm[2];
-            string delimiter = sm[1];
-
-            vector<string> pathElements = CUtils::tokenize(path, delimiter);
-            if (pathElements.size() == pathToList.size() + 1)
-            {
-                m_sListing += string("d    ") + pathElements[pathElements.size() - 1] + "\n";
-            }
-
-            data = sm.suffix();
-        }
-    }
-
-    const std::string& CImapSession::CListSubdirOperation::listing() const
-    {
-        return m_sListing;
-    }
-
-    CImapSession::CSelectMessageOperation::CSelectMessageOperation(const std::string& sPath, int uid,
-        const std::string& from,
-        const std::string& to,
-        const std::string& subject) :
-        CImapSession::COperation(sPath),
-        m_sFrom(from),
-        m_sTo(to),
-        m_sSubject(subject),
-        m_nUid(uid),
-        m_fMatch(true)
-    {
-        ostringstream os;
-        os << path() << ";UID=" << uid << ";SECTION=HEADER.FIELDS (FROM SUBJECT TO)";
-        path() = os.str();
-    }
-
-    void CImapSession::CSelectMessageOperation::completionRoutine(const std::string& data)
-    {
-        string sData = data;
-
-        regex r("(.+)\r*\n");
-        smatch sm;
-
-        string sFrom, sTo, sSubject;
-
-        while (regex_search(sData, sm, r))
-        {
-            string sAttr = sm[1];
-            smatch sm1;
-
-            if (regex_search(sAttr, sm1, regex("[Ff]{1}[Rr]{1}[Oo]{1}[Mm]{1}:")))
-            {
-                sFrom = CUtils::trim(sm1.suffix());
-            }
-            else if (regex_search(sAttr, sm1, regex("[Tt]{1}[Oo]{1}:")))
-            {
-                sTo = CUtils::trim(sm1.suffix());
-            }
-            else if (regex_search(sAttr, sm1, regex("[Ss]{1}[Uu]{1}[Bb]{1}[Jj]{1}[Ee]{1}[Cc]{1}[Tt]{1}:")))
-            {
-                sSubject = CUtils::trim(sm1.suffix());
-            }
-
-            sData = sm.suffix();
-        }
-
-        m_fMatch = true;
-        if (m_sFrom.length() > 0 && sFrom != m_sFrom ||
-            m_sTo.length() > 0 && sTo != m_sTo ||
-            m_sSubject.length() > 0 && sSubject != m_sSubject)
-        {
-            m_fMatch = false;
-        }
-    }
-
-    bool CImapSession::CSelectMessageOperation::match() const
-    {
-        return m_fMatch;
-    }
-
-    CImapSession::CMessageOperation::CMessageOperation(const std::string& sPath, int uid) : 
-        m_nUid(uid),
-        CImapSession::COperation(sPath)
-    {
-        
-    }
-
-    CImapSession::CMessageOperation::~CMessageOperation()
-    {
-    
-    }
-
-    void CImapSession::CMessageOperation::completionRoutine(const std::string& data)
-    {
-    
-    }
-
-    const std::string& CImapSession::CMessageOperation::listing() const
-    {
-        return m_sListing;
-    }
-
-    CImapSession::CRemoveMessageOperation::CRemoveMessageOperation(const std::string& sPath, int uid) :
-        CMessageOperation(sPath, uid)
-    {
-        ostringstream os;
-        os << "STORE " << std::dec << uid << " +Flags \\Deleted";
-        command() = os.str();
-    }
-
-    void CImapSession::CRemoveMessageOperation::completionRoutine(const std::string& data)
-    {
-    
-    }
-    
-    CImapSession::CListMessageOperation::CListMessageOperation(const std::string& sPath, int uid) :
-        CImapSession::CMessageOperation(sPath, uid)
-    {
-        ostringstream os;
-        os << path() << ";UID=" << uid << ";SECTION=HEADER.FIELDS (FROM SUBJECT)";
-        path() = os.str();
-    }
-
-    void CImapSession::CListMessageOperation::completionRoutine(const std::string& data)
-    {
-        string sData = data;
-        ostringstream os;
-
-        os << m_nUid << "\t";
-
-        regex r("(.+)\r*\n");
-        smatch sm;
-
-        while (regex_search(sData, sm, r))
-        {
-            os << sm[1] << "\t";
-            sData = sm.suffix();
-        }
-
-        m_sListing = os.str();
-    }
-
-    CImapSession::CHeadOperation::CHeadOperation(const std::string& sPath, int uid) : 
-        CImapSession::CMessageOperation(sPath, uid)
-    {
-        ostringstream os;
-        os << path() << ";UID=" << uid << ";SECTION=TEXT";
-        path() = os.str();
-    }
-
-    void CImapSession::CHeadOperation::completionRoutine(const std::string& data)
-    {
-        m_sListing = data.substr(0, min(data.length(), 500) );
-    }
-
-    CImapSession::CMakeDirectoryOperation::CMakeDirectoryOperation(
-        const std::string& newDir,
-        const std::string& currentPath) : 
-        CImapSession::COperation(currentPath, string("CREATE ") + newDir)
-    {
-    
-    }
-
-    CImapSession::CRemoveDirectoryOperation::CRemoveDirectoryOperation(
-        const std::string& rmDir, 
-        const std::string& currentPath) : 
-        CImapSession::COperation(currentPath, string("DELETE ") + rmDir)
-    {
-    
-    }
 
     
 }

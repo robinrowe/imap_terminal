@@ -26,12 +26,14 @@ namespace imap_terminal
         std::string pwd() const;
         std::string ls(portable::CommandLine& );
         std::string rm(portable::CommandLine&);
+        std::string mv(portable::CommandLine&);
         std::string head(portable::CommandLine&);
         std::string cd(const std::string& dir = ".");
         std::string whoami() const;
         std::string mkdir(const std::string& dir);
         std::string rmdir(const std::string& dir);
         std::string limit(const std::string& arg = "");
+
                 
         const std::string& host() const;
 
@@ -160,6 +162,40 @@ namespace imap_terminal
 
         };
 
+        class CMoveMessageOperation : public CMessageOperation
+        {
+        public:
+            CMoveMessageOperation(const std::string& path, int uid, CImapSession* pSession,
+                const std::string& destination);
+            virtual ~CMoveMessageOperation();
+            
+            virtual void completionRoutine(const std::string& data);
+
+        private:
+            CImapSession* m_pSession;
+            std::string m_sDestinationPath;
+        };
+
+        class CCreateMessageOperation : public CMessageOperation
+        {
+        public:
+            CCreateMessageOperation(const std::string& path, 
+                const std::string& message, 
+                CImapSession* pSession);
+            virtual ~CCreateMessageOperation();
+
+            virtual void completionRoutine(const std::string& data);
+
+        private:
+            std::string m_sMessage;
+            CImapSession* m_pSession;
+
+            static size_t read_callback(char *buffer, size_t size, size_t nitems, void *data);
+            void __prepareTransfer();
+            void __unprepareTransfer();
+
+        };
+
         
         class CMakeDirectoryOperation : public COperation
         {
@@ -182,6 +218,9 @@ namespace imap_terminal
         int m_nLimit;
         COperation* m_CurrentOperation;
         std::vector<std::string> m_CurrentPath;
+
+        friend class CImapSession::CMoveMessageOperation;
+        friend class CImapSession::CCreateMessageOperation;
 
         std::string __path(const std::vector < std::string >& vec ) const;
         std::string __absPath(const std::string& dir) const;

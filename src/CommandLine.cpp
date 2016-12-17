@@ -54,14 +54,19 @@ CommandLine::CommandLine(const std::vector<std::string>& argvVector)
     Set(argvVector.size(), (&(argv[0])));
 }
 
-const char* CommandLine::operand() const
+const char* CommandLine::operand(int n) const
 {
     map<string, string>::const_iterator i;
+    int counter = 0;
     for (i = data.begin(); i != data.end(); ++i)
     {
         if (i->second == "true")
         {
-            return i->first.c_str();
+            if (counter == n)
+            {
+                return i->first.c_str();
+            }
+            ++counter;
         }
     }
 
@@ -71,6 +76,11 @@ const char* CommandLine::operand() const
 bool CommandLine::empty() const
 {
     return data.size() == 0;
+}
+
+std::map<std::string, std::string>::size_type CommandLine::size()
+{
+    return data.size();
 }
 
 }//portable

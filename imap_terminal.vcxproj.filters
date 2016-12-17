@@ -8,6 +8,7 @@
     <ClCompile Include="src\imap_terminal.cpp" />
     <ClCompile Include="src\utils.cpp" />
     <ClCompile Include="src\CommandLine.cpp" />
+    <ClCompile Include="src\imap_operations.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\curl_session.h" />

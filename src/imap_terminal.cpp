@@ -122,9 +122,13 @@ namespace imap_terminal
                 portable::CommandLine cmdLine(line);
                 cout << head(cmdLine) << endl;
             }
+            else if (line[0] == "send")
+            {
+                //ADD SEND COMMAND IMPLEMENTATION HERE!!!!!!!!!!!!
+            }
             else
             {
-                //display help message
+                
             }
         }
         catch (const exception& e)

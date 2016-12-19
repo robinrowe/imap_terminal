@@ -373,7 +373,7 @@ namespace imap_terminal
     CImapSession::CMakeDirectoryOperation::CMakeDirectoryOperation(
         const std::string& newDir,
         const std::string& currentPath) :
-        CImapSession::COperation(currentPath, string("CREATE ") + newDir)
+        CImapSession::COperation(currentPath, string("CREATE ") + currentPath.substr(1,currentPath.length() - 1) + string("/") + newDir)
     {
 
     }

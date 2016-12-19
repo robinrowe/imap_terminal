@@ -23,7 +23,7 @@ namespace imap_terminal
         return tokens;
     }
 
-    std::vector<std::string> CUtils::cmdline(std::string src, std::string delimiters, char grouping)
+    std::vector<std::string> CUtils::cmdline(std::string src, const std::string& delimiters, char grouping)
     {
         ostringstream hexGrouping;
         hexGrouping << "\\x" << setfill('0') << setw(2) << std::hex << (int)grouping;

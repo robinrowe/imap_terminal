@@ -10,7 +10,7 @@ namespace imap_terminal
     {
     public:
         static std::vector<std::string> tokenize(std::string src, std::string delimiters);
-        static std::vector<std::string> cmdline(std::string src, std::string delimiters = "\x20\x09", char grouping = '\"');
+        static std::vector<std::string> cmdline(std::string src, const std::string& delimiters = "\x20\x09", char grouping = '\"');
         static std::string trim(const std::string& str);
 
     private:

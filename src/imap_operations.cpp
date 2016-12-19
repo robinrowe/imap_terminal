@@ -347,7 +347,7 @@ namespace imap_terminal
             return 0;
         }
 
-        ::memcpy(buffer, &(pOp->m_sMessage[0]), min(size * nitems, pOp->m_sMessage.length()));
+        ::memcpy(buffer, &(pOp->m_sMessage[0]), (size * nitems <  pOp->m_sMessage.length()) ? size * nitems : pOp->m_sMessage.length());
         if (size * nitems < pOp->m_sMessage.length())
         {
             pOp->m_sMessage = pOp->m_sMessage.substr(size * nitems, pOp->m_sMessage.length() - size * nitems);
@@ -367,7 +367,7 @@ namespace imap_terminal
 
     void CImapSession::CHeadOperation::completionRoutine(const std::string& data)
     {
-        m_sListing = data.substr(0, min(data.length(), 500));
+        m_sListing = data.substr(0, (data.length() <  500) ? data.length() : 500);
     }
 
     CImapSession::CMakeDirectoryOperation::CMakeDirectoryOperation(

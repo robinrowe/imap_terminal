@@ -276,7 +276,7 @@ namespace imap_terminal
                         
                         delete m_CurrentOperation; m_CurrentOperation = NULL;
                     }
-                    catch (const exception& e)
+                    catch (const std::exception& e)
                     {
                         delete m_CurrentOperation; m_CurrentOperation = NULL;
                         sOutput += std::string("ERROR: ") + std::string(e.what()) + "\n";
@@ -305,7 +305,7 @@ namespace imap_terminal
                         delete m_CurrentOperation; 
                         m_CurrentOperation = NULL;
                     }
-                    catch (const exception& e)
+                    catch (const std::exception& e)
                     {
                         delete m_CurrentOperation; m_CurrentOperation = NULL;
                         sOutput += std::string("ERROR: ") + std::string(e.what()) + "\n";

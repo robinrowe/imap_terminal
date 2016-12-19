@@ -1,0 +1,197 @@
+\documentclass[titlepage]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage[russian]{babel}
+\usepackage{wasysym}
+\usepackage{longtable}
+\usepackage{listings}
+\usepackage[colorlinks=true]{hyperref}
+\title{IMAP terminal program}
+\author{Aleksei Malnev}
+
+\begin{document}
+\section{Building}
+To build in MS Visual Studio use \textbf{imap\textunderscore terminal.sln} file provided with the source. 
+To build in Linux use CMake build system. Create a separate build directory, cd into it,
+configure and build \textbf{imap\textunderscore terminal} like this:
+\begin{lstlisting}
+	mkdir path/to/build/dir
+	cd path/to/build/dir
+	cmake path/to/source/dir
+	cmake --build .
+\end{lstlisting}
+\textbf{imap\textunderscore terminal} depends on libcurl to exchange data with IMAP servers.
+For Windows the most recent stable version of libcurl is pre-built and \textbf{libcurl.dll} is 
+put in the same directory with \textbf{imap\textunderscore terminal.exe} automatically by 
+MS Visual Studio build system. In Linux
+libcurl is available for installation from repositories in all modern distributions. For example,
+in Ubuntu-based distros install libcurl by runnning
+\begin{lstlisting}
+123
+\end{lstlisting}
+This must be done before trying to build \textbf{imap\textunderscore terminal}.
+
+\section{Using}
+imap\textunderscore terminal has the following command line syntax:
+\begin{lstlisting}
+imap_terminal -h|-host=<...> [-p|-port=<...>] -u|-user=<...> 
+	[-P|-pass=<...>] [-s|-ssl]
+\end{lstlisting}
+Parameters \textbf{host, port, user, pass} are self-explanatory. Parameter \textbf{-ssl}  indicates
+that SSL should be used to connect. Parameters \textbf{host} and \textbf{user} are required, 
+everything else is optional. If \textbf{port} parameter is omitted then 993 is used as a default. If
+\textbf{-ssl} switch is not given on the command line, imap\textunderscore terminal will try to connect
+without using SSL. For example:
+\begin{lstlisting}
+imap_terminal -h=imap.gmail.com -p=993 -u=me@gmail.com 
+	-P=mypass -ssl
+\end{lstlisting}
+will connect to the Gmail service. When connection is established, an interactive shell-like interface
+is presented. This interface can be used to manipulate messages and directories in the user's mailbox.
+The following commands are implemented.
+
+\subsection{Working with directory tree}
+Use \textbf{ls, cd, pwd, mkdir, rmdir} commands to work with directories. 
+\begin{enumerate}
+	\item
+	\textbf{cd} command changes the current directory. Accepts both relative and absolute paths. 
+	Understands "." and ".." special dirs. Example:
+	\begin{lstlisting}
+		cd INBOX/subdir1
+		cd "../../[Gmail]/Sent Mail"
+	\end{lstlisting}
+	
+	\item
+	\textbf{pwd} command prints the current directory
+	
+	\item
+	\textbf{mkdir, rmdir} commands create and delete subdirectories inside the current directory. Example:
+	\begin{lstlisting}
+		$ mkdir subdir1
+		$ cd subdir1
+		$ pwd
+		/subdir1
+		$
+	\end{lstlisting}
+	
+	\item
+	Use \textbf{ls} command without arguments to list the contents of the current directory. It will
+	start by printing subdirectories in the current directory
+\end{enumerate}
+
+\subsection{Working with messages}
+Use \textbf{ls, rm, mv, head} commands to work with messages. These commands share the common syntax:
+\begin{lstlisting}
+	ls|head|rm|mv [-s|-subject=<...>] [-t|-to=<...>] 
+		[-f|-from=<...>] [message_uid] [destination]
+\end{lstlisting}
+\textbf{-subject, -to, -from} options or their short synonims \textbf{-s, -t, -f} can be used
+to filter messages in the current directory to operate on. Only messages matching the given 
+criteria will be operated on. To do somaething to the individual message supply message UID. 
+[destination] parameter is required for mv command. Examples:
+\begin{lstlisting}
+	ls 3
+	ls -from=me@gmail.com
+	ls -s=<<a message>> -from=me@gmail.com
+	ls
+\end{lstlisting}
+First command lists message with UID=3. Second command lists all messages from me@gmail.com
+in the current directory. Third command lists all messages in the current directory from
+me@gmail.com \textbf{AND} having subject <<a message>>. Fourth command lists everything in
+the current directory.
+
+\par
+\textbf{ls, rm, mv, head} commands always operate on a subset of messages in the current 
+directory. By default the scope of these commands is limited to 20 most recent messages
+in the current directory. To change this value use \textbf{limit} command (described below).
+
+\begin{enumerate}
+	\item
+	\textbf{ls} command can be used to list messages in the current directory.
+		
+	\item
+	\textbf{mv} command can be used to move messages between subdirectories. Usage:
+	\begin{lstlisting}
+	mv <what> <where>
+	\end{lstlisting}
+	<what> can be a message UID or a set of selection options like -s etc. as described above.
+	<where> is an absolute or relative path to the destination directory 
+	
+	\item
+	\textbf{rm} command removes messages from the current directory. Be careful to issue 
+	\textbf{rm} - it will remove all messages in the current directory.
+	
+	\item
+	\textbf{head} command outputs the beginning of a message body
+\end{enumerate}
+
+\subsection{Other commands}
+\begin{enumerate}
+	\item
+	\textbf{limit} command is used to limit the scope of message commands described in section 2.2.
+	Usage:
+	\begin{lstlisting}
+	limit [N]
+	\end{lstlisting}
+	\textbf{limit} without arguments prints the current value. \textbf{limit N} updates the current
+	value to \textbf{N}.
+	
+	\item
+	\textbf{exit} or \textbf{quit} commands make imap\textunderscore terminal close current
+	session and terminate.
+	
+	\item
+	\textbf{whoami} command prints the username currently used to authenticate to IMAP server.
+\end{enumerate}
+
+\subsection{Example session}
+\begin{longtable}{|p{.3\textwidth}|p{.4\textwidth}|p{.25\textwidth}|}
+	  \hline
+	  \textbf{Command} & \textbf{Output} & \textbf{Explanation} \\
+	  
+	  \hline
+	  imap\textunderscore terminal \newline -h=imap.gmail.com \newline -p=993 \newline
+	  -u=me@gmail.com \newline -P=mypass -ssl & none & Run the program and connect to Gmail \\
+	  
+	  \hline
+	  \$ pwd & / &
+	  show the current directory \\
+	  
+	  \hline
+	  \$ ls & d    INBOX \newline d    [Gmail] \newline d    test\textunderscore label &
+	  list the contents of the current directory \\
+	  
+	  \hline
+	  \$ cd INBOX &  &
+	  change the current directory to \textbf{/INBOX} \\
+	  
+	  \hline
+	  \$ pwd & /INBOX &
+	  show the current directory \\
+	  
+	  \hline
+	  \$ ls & 1  From:... Subject:... &
+	  list the contents of the current directory. Listing shows that the message with UID=1 exists\\
+	  
+	  \hline
+	  \$ mv \newline -s=... \newline <<../test\textunderscore label>> &  &
+	  Move the message with given subject to the \textbf{../test\textunderscore label} directory\\
+	  
+	  \hline
+	  \$ cd ../test\textunderscore label &  &
+	  change the current directory to \textbf{/test\textunderscore label} \\
+	  
+	  \hline
+	  \$ ls & d  test\textunderscore sublabel\textunderscore 1 \newline
+		d  test\textunderscore sublabel\textunderscore 2 \newline
+		3  From:..  Subject:\textbf{test1} \newline
+		2  From:..  Subject:... \newline
+		1  From:..  Subject:... &
+	  List the contents of the current directory. Ensure that previous \textbf{mv} command succeeded\\
+	  
+	  \hline
+	  
+\end{longtable}
+
+\end{document}
